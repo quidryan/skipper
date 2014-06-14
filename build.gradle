@@ -1,0 +1,77 @@
+apply plugin: 'java'
+apply plugin: 'groovy' // we only using groovy for tests
+apply plugin: 'maven' // for publishing
+
+sourceCompatibility = 1.6
+
+buildscript {
+    repositories { jcenter() }
+    dependencies { classpath 'com.netflix.nebula:gradle-info-plugin:1.12.+'}
+    dependencies { classpath 'com.netflix.nebula:nebula-core:1.12.+'}
+}
+
+apply plugin: 'info'
+
+repositories {
+    jcenter()
+}
+
+dependencies {
+    compile 'org.gradle:gradle-tooling-api:1.12'
+    compile 'org.slf4j:slf4j-nop:1.7.5'
+    testCompile 'org.spockframework:spock-core:0.7-groovy-1.8'
+    testCompile 'com.energizedwork:spock-extensions:1.0'
+}
+
+jar {
+    manifest {
+        attributes 'Main-Class': 'nebula.skipper.Main'
+    }
+}
+
+// TODO investigate gradle-shadow
+task fatJar(type: Jar) {
+    classifier = 'fat'
+    manifest {
+        attributes 'Main-Class': 'nebula.skipper.Main'
+    }
+    from sourceSets.main.output
+    doFirst {
+        from {
+            sourceSets.main.runtimeClasspath.collect {
+                if (it.name.endsWith('.zip') || it.name.endsWith('.jar')) {
+                    project.zipTree(it)
+                } else {
+                    project.files(it)
+                }
+            }
+        }
+    }
+}
+
+// really executable jar
+// http://skife.org/java/unix/2011/06/20/really_executable_jars.html
+task executableJar(type: nebula.core.AlternativeArchiveTask, dependsOn: fatJar) {
+    inputs.file(fatJar.archivePath)
+
+    destinationDir = fatJar.destinationDir
+    baseName = fatJar.baseName
+    appendix = ""
+    version = ""
+    extension = "sh"
+
+    // for convenience, we make a file in the build dir named denominator with no extension
+    doLast {
+        archivePath << "#!/usr/bin/env sh\n"
+        archivePath << 'exec java -jar $0 "$@"' + "\n"
+
+        def srcFile = fatJar.archivePath
+        archivePath << srcFile.bytes
+        archivePath.setExecutable(true, true)
+    }
+}
+
+artifacts {
+    archives fatJar
+    archives executableJar.archivePath
+}
