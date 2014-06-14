@@ -3,6 +3,7 @@ apply plugin: 'groovy' // we only using groovy for tests
 apply plugin: 'maven' // for publishing
 
 sourceCompatibility = 1.6
+group = 'com.netflix.nebula'
 
 buildscript {
     repositories { jcenter() }
