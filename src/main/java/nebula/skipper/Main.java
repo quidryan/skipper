@@ -26,6 +26,10 @@ public class Main {
         // Peek into the wrapper properties file, to see if they have a preferred distribution
         String distributionUrl = lookupDistributionUrl(pwdFile);
 
+        // TODO Mixin some way of globally defining a distributionUrl
+        // TODO Allow overriding of distributionUrl on command line
+        // TODO Allow providing version on command line to generate distributionUrl
+
         GradleConnector connector = GradleConnector.newConnector().forProjectDirectory(pwdFile);
 
         // Configure the tooling API
@@ -52,14 +56,32 @@ public class Main {
     }
 
     /**
+     * Search upwards to find a wrapper properties file. If one is found return it,
+     * otherwise return null.
+     * @param pwdfile
+     * @return property file that exists, or a null
+     */
+    public File findWrapperProperties(File pwdfile) {
+        File cwd = pwdfile;
+        while(cwd != null) {
+            File wrapperPropertiesFile = new File(cwd, wrapperProperties);
+            if (wrapperPropertiesFile.exists()) {
+                return wrapperPropertiesFile;
+            }
+            cwd = cwd.getParentFile();
+        }
+        return null;
+    }
+
+    /**
      *
      * @param pwdFile Base of a gradle project
      * @return null if there was no distributionUrl was found
      */
     public String lookupDistributionUrl(File pwdFile) {
-        File wrapperPropertiesFile = new File(pwdFile, wrapperProperties);
+        File wrapperPropertiesFile = findWrapperProperties(pwdFile);
         Properties wrapperProperties = new Properties();
-        if (wrapperPropertiesFile.exists()) {
+        if (wrapperPropertiesFile != null) {
             try {
                 Reader reader = new BufferedReader(new FileReader(wrapperPropertiesFile));
                 wrapperProperties.load(reader);
