@@ -25,15 +25,41 @@ public class MainSpec extends Specification {
         url == 'https://services.gradle.org/distributions/gradle-1.12-all.zip'
     }
 
-    def 'handle no file'() {
-        def wrapperFile = new File(tmpDir, 'gradle/wrapper/gradle-wrapper.properties')
-        wrapperFile.parentFile.mkdirs()
+    def 'run without properties file in hierarchy'() {
+        // Outside our tree, since we have a properties file
+        File projectDir = File.createTempFile('project', null)
+        projectDir.delete() // Since it's a file and we want a dir
+        projectDir.mkdirs()
+        new File(projectDir, 'build.gradle') << '''
+            task output << {
+                file('test.output') << "${gradle.gradleVersion}"
+            }
+            '''.stripIndent()
+
+        Main main = new Main()
 
         when:
-        String url = new Main().lookupDistributionUrl(tmpDir)
+        def result = main.findWrapperProperties(projectDir)
 
         then:
-        url == null
+        result == null
+
+        when:
+        def distributionUrl = main.lookupDistributionUrl(projectDir)
+
+        then:
+        distributionUrl == null
+
+        when:
+        main.runWithWrapper(['output'] as String[], projectDir.absolutePath)
+
+        then:
+        def output = new File(projectDir, 'test.output')
+        output.exists()
+        output.text
+
+        cleanup:
+        projectDir.deleteDir()
     }
 
     def 'run wrapper'() {
